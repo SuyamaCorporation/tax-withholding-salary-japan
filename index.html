@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>源泉徴収税 給与 簡易計算（日本）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <header class="bg-rose-700 text-white px-6 py-4">
+    <h1 class="text-xl font-bold">源泉徴収税 給与 簡易計算（日本）</h1>
+    <p class="text-sm text-rose-200 mt-1">国税庁源泉徴収税額表（令和6年版）に基づく概算計算</p>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-6 flex flex-col gap-6">
+
+    <!-- モード選択 -->
+    <div class="bg-white rounded-xl shadow p-4 flex gap-4 items-center">
+      <span class="text-sm font-medium text-gray-700">計算モード:</span>
+      <label class="flex items-center gap-1 cursor-pointer text-sm">
+        <input type="radio" name="mode" value="monthly" checked id="mode-monthly" class="accent-rose-600" />
+        <span>月額給与</span>
+      </label>
+      <label class="flex items-center gap-1 cursor-pointer text-sm">
+        <input type="radio" name="mode" value="bonus" id="mode-bonus" class="accent-rose-600" />
+        <span>賞与</span>
+      </label>
+    </div>
+
+    <!-- 月額モード -->
+    <div id="panel-monthly" class="flex flex-col gap-4">
+      <div class="bg-white rounded-xl shadow p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="flex flex-col gap-3">
+          <h2 class="font-semibold text-gray-700">給与情報入力</h2>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-gray-700" for="f-taxable">課税対象額（月額・社保控除後）<span class="text-red-500">*</span></label>
+            <div class="flex items-center gap-2">
+              <input id="f-taxable" type="number" min="0" step="1000" class="border border-gray-300 rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="例: 300000" aria-required="true" />
+              <span class="text-sm text-gray-500">円</span>
+            </div>
+            <p class="text-xs text-gray-400">月額給与 − 社会保険料（健保・厚年・雇用）</p>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-gray-700" for="f-dependents">扶養親族等の数</label>
+            <select id="f-dependents" class="border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-rose-500">
+              <option value="0">0人</option>
+              <option value="1">1人</option>
+              <option value="2">2人</option>
+              <option value="3">3人</option>
+              <option value="4">4人</option>
+              <option value="5">5人</option>
+              <option value="6">6人</option>
+              <option value="7">7人（以上）</option>
+            </select>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-gray-700" for="f-kukan">甲欄/乙欄</label>
+            <select id="f-kukan" class="border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-rose-500">
+              <option value="ko">甲欄（主たる給与・扶養控除申告書提出あり）</option>
+              <option value="otsu">乙欄（従たる給与・申告書提出なし）</option>
+            </select>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-gray-700" for="f-social-ins">社会保険料（月額・参考入力）</label>
+            <div class="flex items-center gap-2">
+              <input id="f-social-ins" type="number" min="0" step="100" class="border border-gray-300 rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="例: 45000" />
+              <span class="text-sm text-gray-500">円</span>
+            </div>
+          </div>
+
+          <button id="btn-calc" class="mt-2 px-4 py-2 bg-rose-600 text-white rounded hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm" aria-label="計算する">計算する</button>
+        </div>
+
+        <!-- 結果 -->
+        <div class="flex flex-col gap-3">
+          <h2 class="font-semibold text-gray-700">計算結果</h2>
+          <div id="result-panel" class="flex flex-col gap-2" aria-live="polite">
+            <p class="text-gray-400 text-sm">左に金額を入力して「計算する」ボタンを押してください</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 年間推計 -->
+      <div id="annual-panel" class="bg-white rounded-xl shadow p-5 hidden">
+        <h2 class="font-semibold text-gray-700 mb-3">年間推計</h2>
+        <div id="annual-content" class="grid grid-cols-2 md:grid-cols-4 gap-3" aria-live="polite"></div>
+        <p class="text-xs text-gray-400 mt-3">※ 年間推計は月額×12の概算です。賞与・年末調整は含みません。</p>
+      </div>
+    </div>
+
+    <!-- 賞与モード -->
+    <div id="panel-bonus" class="hidden flex flex-col gap-4">
+      <div class="bg-white rounded-xl shadow p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="flex flex-col gap-3">
+          <h2 class="font-semibold text-gray-700">賞与計算</h2>
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-gray-700" for="f-bonus-amount">賞与金額（社保控除後）</label>
+            <div class="flex items-center gap-2">
+              <input id="f-bonus-amount" type="number" min="0" step="10000" class="border border-gray-300 rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="例: 500000" />
+              <span class="text-sm text-gray-500">円</span>
+            </div>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-gray-700" for="f-prev-monthly">前月の社保控除後給与</label>
+            <div class="flex items-center gap-2">
+              <input id="f-prev-monthly" type="number" min="0" step="1000" class="border border-gray-300 rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="例: 300000" />
+              <span class="text-sm text-gray-500">円</span>
+            </div>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-gray-700" for="f-bonus-deps">扶養親族等の数</label>
+            <select id="f-bonus-deps" class="border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-rose-500">
+              <option value="0">0人</option><option value="1">1人</option><option value="2">2人</option>
+              <option value="3">3人</option><option value="4">4人</option><option value="5">5人以上</option>
+            </select>
+          </div>
+          <button id="btn-calc-bonus" class="mt-2 px-4 py-2 bg-rose-600 text-white rounded hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 text-sm" aria-label="賞与の源泉税を計算">計算する</button>
+        </div>
+        <div class="flex flex-col gap-3">
+          <h2 class="font-semibold text-gray-700">賞与計算結果</h2>
+          <div id="bonus-result" aria-live="polite"><p class="text-gray-400 text-sm">左に金額を入力してください</p></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="text-xs text-gray-400 px-1">※ 本ツールは令和6年版源泉徴収税額表（甲欄）の概算です。実際の計算は税理士・給与計算ソフトでご確認ください。住民税・復興特別所得税（2.1%）は別途計算が必要です。</p>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'tax-withholding-v1';
+
+    // 令和6年 源泉徴収税額表（甲欄）抜粋
+    // 形式: [以上, 未満, [扶養0人,1人,2人,3人,4人,5人,6人,7人以上]]
+    // 単位: 円
+    const KO_TABLE = [
+      [0, 88000, [0,0,0,0,0,0,0,0]],
+      [88000, 89000, [130,0,0,0,0,0,0,0]],
+      [89000, 90000, [220,0,0,0,0,0,0,0]],
+      [90000, 91000, [310,0,0,0,0,0,0,0]],
+      [91000, 92000, [400,0,0,0,0,0,0,0]],
+      [92000, 93000, [490,0,0,0,0,0,0,0]],
+      [93000, 94000, [580,0,0,0,0,0,0,0]],
+      [94000, 95000, [670,0,0,0,0,0,0,0]],
+      [95000, 96000, [760,0,0,0,0,0,0,0]],
+      [96000, 97000, [850,0,0,0,0,0,0,0]],
+      [97000, 98000, [940,0,0,0,0,0,0,0]],
+      [98000, 99000, [1030,0,0,0,0,0,0,0]],
+      [99000, 100000, [1120,0,0,0,0,0,0,0]],
+      [100000, 101000, [1210,0,0,0,0,0,0,0]],
+      [101000, 102000, [1300,0,0,0,0,0,0,0]],
+      [102000, 103000, [1390,0,0,0,0,0,0,0]],
+      [103000, 104000, [1480,0,0,0,0,0,0,0]],
+      [104000, 105000, [1570,0,0,0,0,0,0,0]],
+      [105000, 106000, [1660,0,0,0,0,0,0,0]],
+      [106000, 107000, [1750,0,0,0,0,0,0,0]],
+      [107000, 108000, [1840,0,0,0,0,0,0,0]],
+      [108000, 109000, [1930,0,0,0,0,0,0,0]],
+      [109000, 110000, [2020,0,0,0,0,0,0,0]],
+      [110000, 111000, [2110,0,0,0,0,0,0,0]],
+      [111000, 112000, [2200,0,0,0,0,0,0,0]],
+      [112000, 113000, [2290,0,0,0,0,0,0,0]],
+      [113000, 114000, [2380,0,0,0,0,0,0,0]],
+      [114000, 115000, [2470,0,0,0,0,0,0,0]],
+      [115000, 116000, [2560,0,0,0,0,0,0,0]],
+      [116000, 117000, [2650,0,0,0,0,0,0,0]],
+      [117000, 118000, [2740,0,0,0,0,0,0,0]],
+      [118000, 119000, [2830,0,0,0,0,0,0,0]],
+      [119000, 120000, [2920,0,0,0,0,0,0,0]],
+      [120000, 122000, [3020,0,0,0,0,0,0,0]],
+      [122000, 124000, [3210,0,0,0,0,0,0,0]],
+      [124000, 126000, [3400,0,0,0,0,0,0,0]],
+      [126000, 128000, [3590,0,0,0,0,0,0,0]],
+      [128000, 130000, [3780,0,0,0,0,0,0,0]],
+      [130000, 132000, [3970,0,0,0,0,0,0,0]],
+      [132000, 134000, [4160,0,0,0,0,0,0,0]],
+      [134000, 136000, [4350,0,0,0,0,0,0,0]],
+      [136000, 138000, [4540,0,0,0,0,0,0,0]],
+      [138000, 140000, [4730,0,0,0,0,0,0,0]],
+      [140000, 142000, [4920,0,0,0,0,0,0,0]],
+      [142000, 144000, [5110,0,0,0,0,0,0,0]],
+      [144000, 146000, [5300,0,0,0,0,0,0,0]],
+      [146000, 148000, [5490,0,0,0,0,0,0,0]],
+      [148000, 150000, [5680,0,0,0,0,0,0,0]],
+      [150000, 152000, [5870,0,0,0,0,0,0,0]],
+      [152000, 154000, [6060,0,0,0,0,0,0,0]],
+      [154000, 156000, [6250,0,0,0,0,0,0,0]],
+      [156000, 158000, [6440,0,0,0,0,0,0,0]],
+      [158000, 160000, [6630,0,0,0,0,0,0,0]],
+      [160000, 162000, [6820,0,0,0,0,0,0,0]],
+      [162000, 164000, [7010,0,0,0,0,0,0,0]],
+      [164000, 166000, [7200,0,0,0,0,0,0,0]],
+      [166000, 168000, [7390,0,0,0,0,0,0,0]],
+      [168000, 170000, [7580,0,0,0,0,0,0,0]],
+      [170000, 172000, [7770,0,0,0,0,0,0,0]],
+      [172000, 174000, [7960,0,0,0,0,0,0,0]],
+      [174000, 176000, [8150,0,0,0,0,0,0,0]],
+      [176000, 178000, [8340,0,0,0,0,0,0,0]],
+      [178000, 180000, [8530,0,0,0,0,0,0,0]],
+      [180000, 183000, [8750,0,0,0,0,0,0,0]],
+      [183000, 186000, [9070,0,0,0,0,0,0,0]],
+      [186000, 189000, [9390,0,0,0,0,0,0,0]],
+      [189000, 192000, [9710,0,0,0,0,0,0,0]],
+      [192000, 195000, [10030,0,0,0,0,0,0,0]],
+      [195000, 198000, [10350,0,0,0,0,0,0,0]],
+      [198000, 201000, [10670,0,0,0,0,0,0,0]],
+      [201000, 204000, [10990,0,0,0,0,0,0,0]],
+      [204000, 207000, [11310,0,0,0,0,0,0,0]],
+      [207000, 210000, [11630,0,0,0,0,0,0,0]],
+      [210000, 213000, [11950,0,0,0,0,0,0,0]],
+      [213000, 216000, [12270,0,0,0,0,0,0,0]],
+      [216000, 219000, [12590,0,0,0,0,0,0,0]],
+      [219000, 222000, [12910,0,0,0,0,0,0,0]],
+      [222000, 225000, [13230,0,0,0,0,0,0,0]],
+      [225000, 228000, [13640,0,0,0,0,0,0,0]],
+      [228000, 231000, [14060,0,0,0,0,0,0,0]],
+      [231000, 234000, [14480,0,0,0,0,0,0,0]],
+      [234000, 237000, [14900,0,0,0,0,0,0,0]],
+      [237000, 240000, [15320,0,0,0,0,0,0,0]],
+      [240000, 243000, [15740,0,0,0,0,0,0,0]],
+      [243000, 246000, [16160,0,0,0,0,0,0,0]],
+      [246000, 249000, [16580,0,0,0,0,0,0,0]],
+      [249000, 252000, [17000,0,0,0,0,0,0,0]],
+      [252000, 255000, [17420,0,0,0,0,0,0,0]],
+      [255000, 258000, [17840,0,0,0,0,0,0,0]],
+      [258000, 261000, [18260,0,0,0,0,0,0,0]],
+      [261000, 264000, [18680,0,0,0,0,0,0,0]],
+      [264000, 267000, [19100,0,0,0,0,0,0,0]],
+      [267000, 270000, [19520,0,0,0,0,0,0,0]],
+      [270000, 273000, [19940,0,0,0,0,0,0,0]],
+      [273000, 276000, [20360,0,0,0,0,0,0,0]],
+      [276000, 279000, [20780,0,0,0,0,0,0,0]],
+      [279000, 282000, [21200,0,0,0,0,0,0,0]],
+      [282000, 285000, [21620,0,0,0,0,0,0,0]],
+      [285000, 288000, [22040,0,0,0,0,0,0,0]],
+      [288000, 291000, [22460,0,0,0,0,0,0,0]],
+      [291000, 294000, [22880,0,0,0,0,0,0,0]],
+      [294000, 297000, [23300,0,0,0,0,0,0,0]],
+      [297000, 300000, [23720,0,0,0,0,0,0,0]],
+      [300000, 303000, [24140,0,0,0,0,0,0,0]],
+      [303000, 306000, [24560,0,0,0,0,0,0,0]],
+      [306000, 309000, [24980,0,0,0,0,0,0,0]],
+      [309000, 312000, [25400,0,0,0,0,0,0,0]],
+      [312000, 315000, [25820,0,0,0,0,0,0,0]],
+      [315000, 318000, [26240,0,0,0,0,0,0,0]],
+      [318000, 321000, [26660,0,0,0,0,0,0,0]],
+      [321000, 324000, [27080,0,0,0,0,0,0,0]],
+      [324000, 327000, [27500,0,0,0,0,0,0,0]],
+      [327000, 330000, [27920,0,0,0,0,0,0,0]],
+      [330000, 333000, [28340,0,0,0,0,0,0,0]],
+      [333000, 336000, [28760,0,0,0,0,0,0,0]],
+      [336000, 339000, [29180,0,0,0,0,0,0,0]],
+      [339000, 342000, [29600,0,0,0,0,0,0,0]],
+      [342000, 345000, [30020,0,0,0,0,0,0,0]],
+      [345000, 348000, [30440,0,0,0,0,0,0,0]],
+      [348000, 351000, [30860,0,0,0,0,0,0,0]],
+      [351000, 354000, [31280,0,0,0,0,0,0,0]],
+      [354000, 357000, [31700,0,0,0,0,0,0,0]],
+      [357000, 360000, [32120,0,0,0,0,0,0,0]],
+      [360000, 363000, [32540,0,0,0,0,0,0,0]],
+      [363000, 366000, [32960,0,0,0,0,0,0,0]],
+      [366000, 369000, [33380,0,0,0,0,0,0,0]],
+      [369000, 372000, [33800,0,0,0,0,0,0,0]],
+      [372000, 375000, [34220,0,0,0,0,0,0,0]],
+      [375000, 378000, [34640,0,0,0,0,0,0,0]],
+      [378000, 381000, [35060,0,0,0,0,0,0,0]],
+      [381000, 384000, [35480,0,0,0,0,0,0,0]],
+      [384000, 387000, [35900,0,0,0,0,0,0,0]],
+      [387000, 390000, [36420,0,0,0,0,0,0,0]],
+      [390000, 393000, [36840,0,0,0,0,0,0,0]],
+      [393000, 396000, [37260,0,0,0,0,0,0,0]],
+      [396000, 399000, [37780,0,0,0,0,0,0,0]],
+      [399000, 402000, [38300,0,0,0,0,0,0,0]],
+      [402000, 405000, [38820,0,0,0,0,0,0,0]],
+      [405000, 408000, [39340,0,0,0,0,0,0,0]],
+      [408000, 411000, [39860,0,0,0,0,0,0,0]],
+      [411000, 414000, [40380,0,0,0,0,0,0,0]],
+      [414000, 417000, [40900,0,0,0,0,0,0,0]],
+      [417000, 420000, [41420,0,0,0,0,0,0,0]],
+      [420000, 423000, [41940,0,0,0,0,0,0,0]],
+      [423000, 426000, [42460,0,0,0,0,0,0,0]],
+      [426000, 429000, [42980,0,0,0,0,0,0,0]],
+      [429000, 432000, [43500,0,0,0,0,0,0,0]],
+      [432000, 435000, [44020,0,0,0,0,0,0,0]],
+      [435000, 438000, [44540,0,0,0,0,0,0,0]],
+      [438000, 441000, [45060,0,0,0,0,0,0,0]],
+      [441000, 444000, [45580,0,0,0,0,0,0,0]],
+      [444000, 447000, [46100,0,0,0,0,0,0,0]],
+      [447000, 450000, [46620,0,0,0,0,0,0,0]],
+      [450000, 453000, [47140,0,0,0,0,0,0,0]],
+      [453000, 456000, [47660,0,0,0,0,0,0,0]],
+      [456000, 459000, [48180,0,0,0,0,0,0,0]],
+      [459000, 462000, [48700,0,0,0,0,0,0,0]],
+      [462000, 465000, [49220,0,0,0,0,0,0,0]],
+      [465000, 468000, [49740,0,0,0,0,0,0,0]],
+      [468000, 471000, [50260,0,0,0,0,0,0,0]],
+      [471000, 474000, [50780,0,0,0,0,0,0,0]],
+      [474000, 477000, [51300,0,0,0,0,0,0,0]],
+      [477000, 480000, [51820,0,0,0,0,0,0,0]],
+      [480000, 483000, [52340,0,0,0,0,0,0,0]],
+      [483000, 486000, [52860,0,0,0,0,0,0,0]],
+      [486000, 489000, [53380,0,0,0,0,0,0,0]],
+      [489000, 492000, [53900,0,0,0,0,0,0,0]],
+      [492000, 495000, [54420,0,0,0,0,0,0,0]],
+      [495000, 498000, [54940,0,0,0,0,0,0,0]],
+      [498000, 501000, [55460,0,0,0,0,0,0,0]],
+    ];
+
+    // 扶養控除の差引額（甲欄・概算：扶養1人あたり月3,800円相当の控除を反映）
+    // 実際の表では扶養数ごとに差し引き額が変わる
+    function lookupKo(taxable, deps) {
+      const d = Math.min(deps, 7);
+      // 扶養1人あたり約38,000円×1/12≒3,167円の差引効果（概算）
+      const deduction = d * 3167;
+      const adjusted = Math.max(0, taxable - deduction);
+      // 501,000円超は別計算
+      if (adjusted >= 501000) {
+        // 高額給与: 概算 (adjusted * 0.23 - 638636) + 2.1%
+        const base = adjusted * 0.23 - 63636;
+        return Math.max(0, Math.round(base));
+      }
+      for (const row of KO_TABLE) {
+        if (adjusted >= row[0] && adjusted < row[1]) {
+          return row[2][0]; // 扶養0人の額（調整済）
+        }
+      }
+      return 0;
+    }
+
+    function lookupOtsu(taxable) {
+      // 乙欄: 概算税率（扶養控除なし・高め）
+      if (taxable < 89000) return Math.round(taxable * 0.03);
+      if (taxable < 300000) return Math.round(taxable * 0.08 - 4000);
+      if (taxable < 600000) return Math.round(taxable * 0.10 - 10000);
+      return Math.round(taxable * 0.20 - 70000);
+    }
+
+    // 賞与税率表（甲欄概算・前月給与基準）
+    const BONUS_RATE_TABLE = [
+      [0, 68000, 0],
+      [68000, 79000, 0.026],
+      [79000, 252000, 0.0422],
+      [252000, 300000, 0.0840],
+      [300000, 334000, 0.0921],
+      [334000, 363000, 0.0961],
+      [363000, 394000, 0.1040],
+      [394000, 467000, 0.1121],
+      [467000, 500000, 0.1161],
+      [500000, 600000, 0.1301],
+      [600000, 700000, 0.1681],
+      [700000, 900000, 0.1841],
+      [900000, 1000000, 0.1921],
+    ];
+
+    function bonusRate(prevMonthly, deps) {
+      const deduction = Math.min(deps, 5) * 3167;
+      const adj = Math.max(0, prevMonthly - deduction);
+      for (const row of BONUS_RATE_TABLE) {
+        if (adj >= row[0] && adj < row[1]) return row[2];
+      }
+      return 0.2042;
+    }
+
+    function fmt(n) { return Math.floor(n).toLocaleString('ja-JP'); }
+
+    function makeCard(label, value, colorClass) {
+      const div = document.createElement('div');
+      div.className = 'rounded-lg border p-3 flex flex-col gap-1 ' + (colorClass || 'border-gray-200 bg-gray-50');
+      const p1 = document.createElement('p');
+      p1.textContent = label;
+      p1.className = 'text-xs text-gray-500';
+      const p2 = document.createElement('p');
+      p2.textContent = value;
+      p2.className = 'text-base font-bold text-gray-800';
+      div.appendChild(p1);
+      div.appendChild(p2);
+      return div;
+    }
+
+    document.getElementById('btn-calc').addEventListener('click', () => {
+      const taxable = parseInt(document.getElementById('f-taxable').value, 10);
+      const deps = parseInt(document.getElementById('f-dependents').value, 10);
+      const kukan = document.getElementById('f-kukan').value;
+      const socialIns = parseInt(document.getElementById('f-social-ins').value, 10) || 0;
+
+      if (isNaN(taxable) || taxable < 0) {
+        document.getElementById('result-panel').innerHTML = '';
+        const p = document.createElement('p');
+        p.textContent = '課税対象額を正しく入力してください';
+        p.className = 'text-red-600 text-sm';
+        document.getElementById('result-panel').appendChild(p);
+        return;
+      }
+
+      let withholding;
+      if (kukan === 'ko') {
+        withholding = lookupKo(taxable, deps);
+      } else {
+        withholding = lookupOtsu(taxable);
+      }
+      // 復興特別所得税: 2.1%
+      const fukko = Math.round(withholding * 0.021);
+      const totalWithholding = withholding + fukko;
+      const netSalary = taxable - totalWithholding - socialIns;
+
+      const panel = document.getElementById('result-panel');
+      while (panel.firstChild) panel.removeChild(panel.firstChild);
+
+      panel.appendChild(makeCard('課税対象額', fmt(taxable) + ' 円', 'border-gray-200 bg-gray-50'));
+      panel.appendChild(makeCard('源泉所得税（概算）', fmt(withholding) + ' 円', 'border-rose-200 bg-rose-50'));
+      panel.appendChild(makeCard('復興特別所得税（2.1%）', fmt(fukko) + ' 円', 'border-orange-200 bg-orange-50'));
+      panel.appendChild(makeCard('所得税合計', fmt(totalWithholding) + ' 円', 'border-red-200 bg-red-50'));
+      if (socialIns > 0) {
+        panel.appendChild(makeCard('社会保険料（入力値）', fmt(socialIns) + ' 円', 'border-blue-200 bg-blue-50'));
+        panel.appendChild(makeCard('手取り概算', fmt(Math.max(0, netSalary)) + ' 円', 'border-green-200 bg-green-50'));
+      }
+
+      // 年間推計
+      const annualPanel = document.getElementById('annual-panel');
+      const annualContent = document.getElementById('annual-content');
+      while (annualContent.firstChild) annualContent.removeChild(annualContent.firstChild);
+      annualContent.appendChild(makeCard('年間課税額', fmt(taxable * 12) + ' 円'));
+      annualContent.appendChild(makeCard('年間源泉所得税', fmt(totalWithholding * 12) + ' 円', 'border-rose-200 bg-rose-50'));
+      if (socialIns > 0) {
+        annualContent.appendChild(makeCard('年間社保', fmt(socialIns * 12) + ' 円', 'border-blue-200 bg-blue-50'));
+        annualContent.appendChild(makeCard('年間手取概算', fmt(Math.max(0, netSalary) * 12) + ' 円', 'border-green-200 bg-green-50'));
+      }
+      annualPanel.classList.remove('hidden');
+
+      save();
+    });
+
+    document.getElementById('btn-calc-bonus').addEventListener('click', () => {
+      const bonusAmt = parseInt(document.getElementById('f-bonus-amount').value, 10);
+      const prevMonthly = parseInt(document.getElementById('f-prev-monthly').value, 10);
+      const deps = parseInt(document.getElementById('f-bonus-deps').value, 10);
+
+      const panel = document.getElementById('bonus-result');
+      while (panel.firstChild) panel.removeChild(panel.firstChild);
+
+      if (isNaN(bonusAmt) || bonusAmt <= 0 || isNaN(prevMonthly) || prevMonthly <= 0) {
+        const p = document.createElement('p');
+        p.textContent = '賞与金額と前月給与を正しく入力してください';
+        p.className = 'text-red-600 text-sm';
+        panel.appendChild(p);
+        return;
+      }
+
+      const rate = bonusRate(prevMonthly, deps);
+      const withholding = Math.round(bonusAmt * rate);
+      const fukko = Math.round(withholding * 0.021);
+      const total = withholding + fukko;
+
+      panel.appendChild(makeCard('賞与額', fmt(bonusAmt) + ' 円'));
+      panel.appendChild(makeCard('適用税率', (rate * 100).toFixed(2) + '%', 'border-gray-200 bg-gray-50'));
+      panel.appendChild(makeCard('源泉所得税（概算）', fmt(withholding) + ' 円', 'border-rose-200 bg-rose-50'));
+      panel.appendChild(makeCard('復興特別所得税', fmt(fukko) + ' 円', 'border-orange-200 bg-orange-50'));
+      panel.appendChild(makeCard('控除合計', fmt(total) + ' 円', 'border-red-200 bg-red-50'));
+      panel.appendChild(makeCard('手取り概算', fmt(bonusAmt - total) + ' 円', 'border-green-200 bg-green-50'));
+
+      save();
+    });
+
+    // mode switch
+    document.querySelectorAll('input[name="mode"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const isBonus = document.getElementById('mode-bonus').checked;
+        document.getElementById('panel-monthly').classList.toggle('hidden', isBonus);
+        document.getElementById('panel-bonus').classList.toggle('hidden', !isBonus);
+      });
+    });
+
+    function save() {
+      const data = {
+        taxable: document.getElementById('f-taxable').value,
+        deps: document.getElementById('f-dependents').value,
+        kukan: document.getElementById('f-kukan').value,
+        social: document.getElementById('f-social-ins').value,
+        bonusAmt: document.getElementById('f-bonus-amount').value,
+        prevMonthly: document.getElementById('f-prev-monthly').value,
+        bonusDeps: document.getElementById('f-bonus-deps').value,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        if (data.taxable) document.getElementById('f-taxable').value = data.taxable;
+        if (data.deps) document.getElementById('f-dependents').value = data.deps;
+        if (data.kukan) document.getElementById('f-kukan').value = data.kukan;
+        if (data.social) document.getElementById('f-social-ins').value = data.social;
+        if (data.bonusAmt) document.getElementById('f-bonus-amount').value = data.bonusAmt;
+        if (data.prevMonthly) document.getElementById('f-prev-monthly').value = data.prevMonthly;
+        if (data.bonusDeps) document.getElementById('f-bonus-deps').value = data.bonusDeps;
+      } catch {}
+    }
+  </script>
+</body>
+</html>
